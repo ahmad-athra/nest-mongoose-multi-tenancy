@@ -1,0 +1,1 @@
+export * from './mongo-tenants-module-options.interface'

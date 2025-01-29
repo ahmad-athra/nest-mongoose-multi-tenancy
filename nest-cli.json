@@ -1,8 +1,22 @@
 {
   "$schema": "https://json.schemastore.org/nest-cli",
   "collection": "@nestjs/schematics",
-  "sourceRoot": "src",
+  "sourceRoot": "libs",
   "compilerOptions": {
-    "deleteOutDir": true
+    "deleteOutDir": true,
+    "webpack": false,
+    "tsConfigPath": "tsconfig.json"
+  },
+  "projects": {
+    "multi-tenant": {
+      "type": "library",
+      "root": "libs/multi-tenant",
+      "entryFile": "index",
+      "sourceRoot": "libs/multi-tenant/src",
+      "compilerOptions": {
+        "webpack": false,
+        "tsConfigPath": "libs/multi-tenant/tsconfig.lib.json"
+      }
+    }
   }
 }

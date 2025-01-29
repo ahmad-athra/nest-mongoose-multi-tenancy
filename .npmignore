@@ -1,0 +1,33 @@
+# source
+libs/
+
+# tests
+test/
+
+
+
+# misc
+package-lock.json
+nest-cli.json
+.eslintrc.js
+eslint.config.mjs
+.gitignore
+*.tgz
+tsconfig.json
+tsconfig.build.json
+.prettierrc
+.prettierrc
+.commitlintrc.json
+docker-compose.yml
+.husky/
+.github/
+.circleci/
+renovate.json
+
+
+
+# Add these
+/src/
+/tsconfig*
+/jest.config.js
+*.md # Except README.md
