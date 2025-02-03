@@ -3,10 +3,14 @@ import {
   DEFAULT_TENANT_KEY,
 } from '../constants/providers.constants';
 
-export function getTenantKey(tenantKey: string | undefined): string {
+export function getTenantKey(tenantKey?: string): string {
   return tenantKey?.trim().length ? tenantKey : DEFAULT_TENANT_KEY;
 }
 
-export function getRequestKey(tenantKey: string | undefined): string {
+export function getRequestKey(tenantKey?: string): string {
   return tenantKey?.trim().length ? tenantKey : DEFAULT_REQUEST_TENANT_KEY;
+}
+
+export function getMultiTenantConnectionToken(name: string) {
+  return `${name}TenantConnection`;
 }

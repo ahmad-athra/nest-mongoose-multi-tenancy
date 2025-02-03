@@ -12,6 +12,9 @@ export const REQUEST_TENANT_KEY_TOKEN = 'REQUEST_TENANT_KEY';
  */
 export const DEFAULT_REQUEST_TENANT_KEY = 'tenant_id';
 
+/**
+ * Tenant Connection Token [MultiTenantModuleToken]
+ */
 export const TENANT_CONNECTION_TOKEN = 'TENANT_CONNECTION';
 
 /**

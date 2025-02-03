@@ -1,8 +1,10 @@
 import {
   DynamicModule,
   flatten,
+  Global,
   Logger,
   Module,
+  ModuleMetadata,
   NotFoundException,
   Provider,
   Scope,
@@ -14,13 +16,16 @@ import {
   ModelDefinition,
   MongooseModule,
 } from '@nestjs/mongoose';
-import { Connection } from 'mongoose';
+import { Connection, Document, Model } from 'mongoose';
 import { CONNECTION_APPROACH } from '../constants/general.constants';
 import {
   MONGO_TENANT_ASYNC_MODULE_OPTIONS,
   TENANT_CONNECTION_TOKEN,
 } from '../constants/providers.constants';
-import { getRequestKey } from '../utils/token-utils';
+import {
+  getMultiTenantConnectionToken,
+  getRequestKey,
+} from '../utils/token-utils';
 import { handlePojoApproach, handleUseDbApproach } from './helper';
 import {
   MongoTenantsModelsAsyncOptions,
@@ -33,27 +38,38 @@ import {
   /*createAsyncOptionsModuleProvider, createAsyncRequestTenantKey, */ createMiddlewareTenantKey,
   createRequestTenantKey,
 } from './mongo-tenants.providers';
+import { log } from 'console';
+import { extractMongooseOptions } from '../common/multi-tenant.utils';
 
 @Module({})
 export class MultiTenantCoreModule {
   private static logger: Logger = new Logger(MultiTenantCoreModule.name);
 
-  static forRootCommon(providers: Provider[], imports?: any[]): DynamicModule {
+  static forRootCommon(
+    providers: ModuleMetadata['providers'],
+    imports: ModuleMetadata['imports'] = [],
+  ): DynamicModule {
     return {
       module: MultiTenantCoreModule,
-      global: true,
-      imports: imports || [],
+      // TODO
+      global: true, // check it
+      imports: imports,
       providers,
       exports: providers,
     };
   }
   // [OK]
   static forRoot(options: MultiTenantModuleOptions): DynamicModule {
+    // const mongooseOptions = extractMongooseOptions(options.mongooseModuleOptions);
+    // console.log(mongooseOptions);
+
     const mongooseModuleImport = MongooseModule.forRoot(
       options.uri,
       options.mongooseModuleOptions,
     );
+
     const providers = [
+      // this.createMultiTenantConnectionNameProvider(options),
       createMiddlewareTenantKey(options.tenantKey),
       createRequestTenantKey(options.requestKey),
       this.createTenantConnectionProvider(options),
@@ -75,6 +91,21 @@ export class MultiTenantCoreModule {
 
   // ---------------------------------------------------------------------- [METHODS]
 
+  // private static createMultiTenantConnectionNameProvider(
+  //   options: MultiTenantModuleOptions,
+  // ): Provider {
+  //   const mongooseConnectionName = getConnectionToken(
+  //     options.mongooseModuleOptions?.connectionName,
+  //   );
+
+  //   const multiTenantMongooseConnectionName = getMultiTenantConnectionToken(
+  //     mongooseConnectionName,
+  //   );
+  //   return {
+  //     provide: TENANT_CONNECTION_TOKEN,
+  //     useValue: multiTenantMongooseConnectionName,
+  //   };
+  // }
   // [CLEAN]
   /**
    *
@@ -84,6 +115,14 @@ export class MultiTenantCoreModule {
   private static createTenantConnectionProvider(
     options: MultiTenantModuleOptions,
   ): Provider {
+    const mongooseConnectionName = getConnectionToken(
+      options.mongooseModuleOptions?.connectionName,
+    );
+    // const multiTenantMongooseConnectionName = getMultiTenantConnectionToken(
+    //   mongooseConnectionName,
+    // );
+
+    this.logger.log(`Mongoose Connection Name: ${mongooseConnectionName}`);
     if (options.approach === CONNECTION_APPROACH.POJO) {
       return {
         provide: TENANT_CONNECTION_TOKEN,
@@ -103,8 +142,7 @@ export class MultiTenantCoreModule {
         },
         inject: [REQUEST],
       };
-    } else {
-      const connectionToken = getConnectionToken(options.connectionToken);
+    } else if (options.approach === CONNECTION_APPROACH.USEDB) {
       return {
         provide: TENANT_CONNECTION_TOKEN,
         durable: true,
@@ -124,7 +162,13 @@ export class MultiTenantCoreModule {
 
           return handleUseDbApproach(db, connection);
         },
-        inject: [REQUEST, connectionToken],
+        inject: [REQUEST, mongooseConnectionName],
+      };
+    } else {
+      return {
+        provide: TENANT_CONNECTION_TOKEN,
+        useFactory: (connection: Connection) => connection,
+        inject: [mongooseConnectionName],
       };
     }
   }
@@ -152,29 +196,70 @@ export class MultiTenantCoreModule {
   // }
 
   // [OK]
-  static forFeature(models: ModelDefinition[] = []): DynamicModule {
-    const modelsProviders = this.createTenantModelProvider(models);
+  static forFeature(
+    models: ModelDefinition[] = [],
+    connectionName?: string,
+  ): DynamicModule {
+    const modelsProviders = this.createTenantModelProvider(
+      models,
+      connectionName,
+    );
     return {
       module: MultiTenantCoreModule,
-      // global: true,
-      // imports: [MongooseModule],
+      global: true,
+      imports: [MongooseModule],
       providers: [...modelsProviders],
       exports: [...modelsProviders],
     };
   }
 
-  // [OK]
+  // TODO: Add discriminators Support
+  // DOING: implement discriminators Support
   private static createTenantModelProvider(
     models: ModelDefinition[],
+    connectionName?: string,
   ): Provider[] {
-    return models.map((model) => ({
-      provide: getModelToken(model.name),
-      useFactory: (tenantConnection: Connection) =>
-        tenantConnection.models[model.name]
-          ? tenantConnection.models[model.name]
-          : tenantConnection.model(model.name, model.schema, model.collection),
-      inject: [TENANT_CONNECTION_TOKEN],
-    }));
+    const providers = models.reduce(
+      (providers, model) => [
+        ...providers,
+        // TODO: Separate it in utils function
+        ...(model.discriminators || []).map((d) => ({
+          provide: getModelToken(d.name, connectionName),
+          useFactory: (model: Model<Document>) =>
+            model.discriminator(d.name, d.schema, d.value),
+          inject: [getModelToken(model.name, connectionName)],
+        })),
+        {
+          scope: Scope.REQUEST,
+          durable: true,
+          provide: getModelToken(model.name, connectionName),
+          useFactory: (tenantConnection: Connection) => {
+            console.log('tenantConnection.id', tenantConnection.id);
+            return tenantConnection.models[model.name]
+              ? tenantConnection.models[model.name]
+              : tenantConnection.model(
+                  model.name,
+                  model.schema,
+                  model.collection,
+                );
+          },
+          // TODO: replace it with TENANT_CONNECTION_TOKEN
+          // inject: [getConnectionToken(connectionName)],
+          inject: [TENANT_CONNECTION_TOKEN],
+        } as Provider,
+      ],
+      [] as Provider[],
+    );
+    return providers;
+
+    // return models.map((model) => ({
+    //   provide: getModelToken(model.name),
+    //   useFactory: (tenantConnection: Connection) =>
+    //     tenantConnection.models[model.name]
+    //       ? tenantConnection.models[model.name]
+    //       : tenantConnection.model(model.name, model.schema, model.collection),
+    //   inject: [TENANT_CONNECTION_TOKEN],
+    // }));
   }
 
   // static forFeatureAsync(

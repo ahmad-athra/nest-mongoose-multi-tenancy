@@ -1,5 +1,5 @@
 import { DynamicModule, Module } from '@nestjs/common';
-import { ModelDefinition } from '@nestjs/mongoose';
+import { ModelDefinition, MongooseModule } from '@nestjs/mongoose';
 import {
   MongoTenantsModelsAsyncOptions,
   MongoTenantsModuleAsyncOptions,
@@ -25,10 +25,15 @@ export class MultiTenantModule {
   //   }
   // }
 
-  static forFeature(models: ModelDefinition[] = []): DynamicModule {
+  static forFeature(
+    models: ModelDefinition[] = [],
+    connectionName?: string,
+  ): DynamicModule {
+    // const providers = createMongooseProviders(connectionName, models);
+
     return {
       module: MultiTenantModule,
-      imports: [MultiTenantCoreModule.forFeature(models)],
+      imports: [MultiTenantCoreModule.forFeature(models, connectionName)],
       exports: [MultiTenantCoreModule],
     };
   }

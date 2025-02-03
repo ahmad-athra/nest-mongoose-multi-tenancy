@@ -3,6 +3,7 @@ import {
   MongoTenantsModuleOptionsPOJO,
   MultiTenantModuleOptions,
 } from './interface/mongo-tenants-module-options.interface';
+import { extractMongooseOptions } from '../common/multi-tenant.utils';
 
 /**
  *
@@ -30,8 +31,9 @@ export async function handlePojoApproach(
   options: MultiTenantModuleOptions,
 ): Promise<Connection> {
   const connectionString = options.uri;
+  const mongooseOptions = extractMongooseOptions(options);
   return createConnection(connectionString, {
-    ...options.connectionOptions,
+    ...mongooseOptions,
     dbName: db,
   }).asPromise();
 }

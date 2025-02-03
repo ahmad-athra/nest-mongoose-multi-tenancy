@@ -48,8 +48,8 @@ export type MongoTenantsModuleOptions =
 export interface MultiTenantModuleOptions {
   approach: CONNECTION_APPROACH;
   uri: string;
-  connectionToken?: string;
-  connectionOptions?: ConnectOptions;
+  // connectionToken?: string;
+  // connectionOptions?: ConnectOptions; // replaced with [options]: MongooseModuleOptions
   mongooseModuleOptions?: MongooseModuleOptions;
   tenantKey?: string;
   requestKey?: string;

@@ -1,4 +1,5 @@
 export enum CONNECTION_APPROACH {
+  DEFAULT = 'DEFAULT',
   POJO = 'POJO',
   USEDB = 'USEDB',
 }
