@@ -4,10 +4,10 @@ export * from './src/multi-tenant.module';
 // export lib Providers
 
 // export lib constants
-export * from './constants';
+// export * from './constants';
 
 // export lib interfaces
-export * from './src/interface';
+// export * from './src/interface';
 
 // export lib middlewares
 export * from './src/Middlewares';
