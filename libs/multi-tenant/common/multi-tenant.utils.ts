@@ -34,8 +34,9 @@ export async function handlePojoApproach(
 ): Promise<Connection> {
   const logger = new Logger('MultiTenantModule');
   const connectionString = options.uri;
+  const mongooseOptions = extractMongooseOptions(options.mongooseModuleOptions);
   const currentConnection = createConnection(connectionString, {
-    ...options.mongooseModuleOptions,
+    ...mongooseOptions,
     dbName: db,
   }).asPromise();
   logger.debug(

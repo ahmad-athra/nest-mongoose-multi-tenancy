@@ -1,6 +1,8 @@
 // export lib modules
 export * from './src/multi-tenant.module';
 
+// export lib Providers
+
 // export lib constants
 export * from './constants';
 

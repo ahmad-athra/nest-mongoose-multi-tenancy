@@ -2,14 +2,17 @@ import {
   DynamicModule,
   flatten,
   Global,
+  Inject,
   Logger,
   Module,
   ModuleMetadata,
   NotFoundException,
+  OnApplicationShutdown,
+  OnModuleDestroy,
   Provider,
   Scope,
 } from '@nestjs/common';
-import { REQUEST } from '@nestjs/core';
+import { ModuleRef, REQUEST } from '@nestjs/core';
 import {
   getConnectionToken,
   getModelToken,
@@ -26,7 +29,6 @@ import {
   getMultiTenantConnectionToken,
   getRequestKey,
 } from '../utils/token-utils';
-import { handlePojoApproach, handleUseDbApproach } from './helper';
 import {
   MongoTenantsModelsAsyncOptions,
   MongoTenantsModuleAsyncOptions,
@@ -39,11 +41,19 @@ import {
   createRequestTenantKey,
 } from './mongo-tenants.providers';
 import { log } from 'console';
-import { extractMongooseOptions } from '../common/multi-tenant.utils';
+import {
+  extractMongooseOptions,
+  handlePojoApproach,
+  handleUseDbApproach,
+} from '../common/multi-tenant.utils';
 
 @Module({})
-export class MultiTenantCoreModule {
+export class MultiTenantCoreModule implements OnModuleDestroy {
+  onModuleDestroy() {
+    this.loggerX.log('onModuleDestroy down...', MultiTenantCoreModule.name);
+  }
   private static logger: Logger = new Logger(MultiTenantCoreModule.name);
+  private loggerX: Logger = new Logger(MultiTenantCoreModule.name);
 
   static forRootCommon(
     providers: ModuleMetadata['providers'],
@@ -60,9 +70,11 @@ export class MultiTenantCoreModule {
   }
   // [OK]
   static forRoot(options: MultiTenantModuleOptions): DynamicModule {
-    // const mongooseOptions = extractMongooseOptions(options.mongooseModuleOptions);
-    // console.log(mongooseOptions);
+    const mongooseOptions = extractMongooseOptions(
+      options.mongooseModuleOptions,
+    );
 
+    // import MongooseModule to make its providers available
     const mongooseModuleImport = MongooseModule.forRoot(
       options.uri,
       options.mongooseModuleOptions,
@@ -118,9 +130,6 @@ export class MultiTenantCoreModule {
     const mongooseConnectionName = getConnectionToken(
       options.mongooseModuleOptions?.connectionName,
     );
-    // const multiTenantMongooseConnectionName = getMultiTenantConnectionToken(
-    //   mongooseConnectionName,
-    // );
 
     this.logger.log(`Mongoose Connection Name: ${mongooseConnectionName}`);
     if (options.approach === CONNECTION_APPROACH.POJO) {
@@ -230,6 +239,7 @@ export class MultiTenantCoreModule {
           inject: [getModelToken(model.name, connectionName)],
         })),
         {
+          // TODO: Make durable according to the used approach
           scope: Scope.REQUEST,
           durable: true,
           provide: getModelToken(model.name, connectionName),

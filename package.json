@@ -90,6 +90,7 @@
       "<rootDir>/libs/"
     ],
     "moduleNameMapper": {
+      "^@app/mongoose-multi-tenant(|/.*)$": "<rootDir>/libs/mongoose-multi-tenant/src/$1",
       "^multi-tenant/multi-tenant(|/.*)$": "<rootDir>/libs/multi-tenant/src/$1"
     }
   }

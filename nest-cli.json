@@ -8,6 +8,15 @@
     "tsConfigPath": "tsconfig.json"
   },
   "projects": {
+    "mongoose-multi-tenant": {
+      "type": "library",
+      "root": "libs/mongoose-multi-tenant",
+      "entryFile": "index",
+      "sourceRoot": "libs/mongoose-multi-tenant/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/mongoose-multi-tenant/tsconfig.lib.json"
+      }
+    },
     "multi-tenant": {
       "type": "library",
       "root": "libs/multi-tenant",
