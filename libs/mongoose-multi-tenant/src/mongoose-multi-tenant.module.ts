@@ -1,38 +1,61 @@
-import { DynamicModule, Module } from '@nestjs/common';
-import { MongooseMultiTenantService } from './mongoose-multi-tenant.service';
-import { MultiTenantModuleOptions } from '../interfaces';
+import {
+  DynamicModule,
+  Global,
+  Logger,
+  Module,
+  Provider,
+} from '@nestjs/common';
 import { ModelDefinition, MongooseModule } from '@nestjs/mongoose';
+import { CONNECTION_MODE, MultiTenantModuleOptions } from '../interfaces';
+import { PojoModule } from './core-modules/pojo/pojo.module';
+import { UseDBModule } from './core-modules/usedb/usedb.module';
+import { createMongooseProviders } from './multi-tenant-mongoose.providers';
 
 @Module({})
 export class MongooseMultiTenantModule {
+  private static logger = new Logger('MongooseMultiTenantModule');
+
   static forRoot(options: MultiTenantModuleOptions): DynamicModule {
-    let module: DynamicModule = {
-      module: MongooseMultiTenantModule,
-    };
-    if (options.approach === 'DEFAULT') {
-      module = {
-        ...module,
-        imports: [
-          MongooseModule.forRoot(options.uri, options.mongooseModuleOptions),
-        ],
+    if (options.mode === CONNECTION_MODE.default) {
+      const { uri, mongooseModuleOptions } = options;
+      return {
+        module: MongooseMultiTenantModule,
+        imports: [MongooseModule.forRoot(uri, mongooseModuleOptions)],
         exports: [MongooseModule],
       };
     }
+    if (options.mode === CONNECTION_MODE.use_db) {
+      return {
+        module: MongooseMultiTenantModule,
+        imports: [UseDBModule.forRoot(options)],
+        exports: [UseDBModule.forRoot(options)],
+      };
+    }
+    if (options.mode === CONNECTION_MODE.pojo) {
+      return {
+        module: MongooseMultiTenantModule,
+        imports: [PojoModule.forRoot(options)],
+      };
+    }
 
-    return module;
+    this.logger.error('NOT PROVIDED', this);
+    throw new Error('NOT PROVIDED');
   }
 
   static forFeature(
     models: ModelDefinition[] = [],
     connectionName?: string,
   ): DynamicModule {
-    let module: DynamicModule = {
-      module: MongooseMultiTenantModule,
-      global: true,
-      imports: [MongooseModule.forFeature(models, connectionName)],
-      exports: [MongooseModule],
-    };
+    const providers: Provider[] = createMongooseProviders(
+      connectionName,
+      models,
+    );
 
-    return module;
+    return {
+      module: MongooseMultiTenantModule,
+      // imports: [PojoModule],
+      providers: providers,
+      exports: providers,
+    };
   }
 }
