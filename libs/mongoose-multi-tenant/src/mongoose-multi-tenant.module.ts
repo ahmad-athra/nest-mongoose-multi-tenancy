@@ -42,6 +42,10 @@ export class MongooseMultiTenantModule {
     throw new Error('NOT PROVIDED');
   }
 
+  // static forRootAsync (): DynamicModule {
+
+  // }
+
   static forFeature(
     models: ModelDefinition[] = [],
     connectionName?: string,

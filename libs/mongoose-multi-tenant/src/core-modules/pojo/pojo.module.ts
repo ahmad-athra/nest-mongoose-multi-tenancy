@@ -3,8 +3,10 @@ import {
   DynamicModule,
   Global,
   Module,
+  ModuleMetadata,
   OnApplicationShutdown,
   Scope,
+  Type,
 } from '@nestjs/common';
 import { REQUEST } from '@nestjs/core';
 import { MongooseModuleOptions } from '@nestjs/mongoose';
@@ -23,16 +25,34 @@ export interface PojoModuleOptions {
   uri: string;
   mongooseModuleOptions?: MongooseModuleOptions;
 }
+// export type PojoModuleFactoryOptions = Omit<
+// PojoModuleOptions,
+// ''
+// >
+// export interface PojoModuleAsyncOptions extends Pick<ModuleMetadata, 'imports'> {
+//     connectionName?: string;
+//     // useExisting?: Type<MongooseOptionsFactory>;
+//     // useClass?: Type<MongooseOptionsFactory>;
+//     useFactory?: (
+//       ...args: any[]
+//     ) => Promise<MongooseModuleFactoryOptions> | MongooseModuleFactoryOptions;
+//     inject?: any[];
+//   }
 
 @Global()
 @Module({})
 export class PojoModule implements OnApplicationShutdown {
   onApplicationShutdown(signal?: string) {
+    console.log('Shutdown!!');
+
     [...PojoModule.connections.values()].forEach(
-      async (connection) => connection && (await connection.close()),
+      async (connection) => connection && (await connection.connection.close()),
     );
   }
-  static readonly connections: Map<string, Connection> = new Map();
+  static readonly connections: Map<
+    string,
+    { connection: Connection; time: NodeJS.Timeout }
+  > = new Map();
   static forRoot(options: PojoModuleOptions): DynamicModule {
     const { uri, mongooseModuleOptions } = options;
     const { connectionName } = mongooseModuleOptions || {};
@@ -56,14 +76,19 @@ export class PojoModule implements OnApplicationShutdown {
         if (!db)
           throw new BadRequestException(`Missing x-tenant-id ${db} in headers`);
 
-        console.log('this.connections.has(db)', this.connections.has(db));
-
-        if (this.connections.has(db)) {
-          const connection = this.connections.get(db) as Connection;
-          if (connection.readyState !== 1) {
-            this.connections.delete(db);
+        const connection_db = `${mongooseConnectionName}-${db}`; //unique name for every connection // based on connection name and tenant-id
+        console.log(`mongooseConnectionName, ${mongooseConnectionName}`);
+        console.log(
+          'this.connections.has(db)',
+          this.connections.has(connection_db),
+        );
+        if (this.connections.has(connection_db)) {
+          const connectionObj = this.connections.get(connection_db)!;
+          if (connectionObj.connection.readyState !== 1) {
+            this.connections.delete(connection_db);
           } else {
-            return this.connections.get(db);
+            connectionObj.time.refresh();
+            return this.connections.get(connection_db)!.connection;
           }
         }
 
@@ -74,19 +99,18 @@ export class PojoModule implements OnApplicationShutdown {
           ...mongooseOptions,
           dbName: db,
         }).asPromise();
-        this.connections.set(db, newConnection);
-        setTimeout(async () => {
-          this.connections.delete(db);
+        const clearFunc = setTimeout(async () => {
+          this.connections.delete(connection_db);
           await newConnection.close();
-          //   newConnection
           console.log(
-            `clear ${db} from connections, connection_id: ${newConnection.id}`,
+            `clear ${connection_db} from connections, connection_id: ${newConnection.id}`,
           );
         }, 10 * 1000);
 
-        setInterval(() => {
-          console.log(`Active connections: ${this.connections.size}`);
-        }, 60 * 1000);
+        this.connections.set(connection_db, {
+          connection: newConnection,
+          time: clearFunc,
+        });
         return newConnection;
       },
       inject: [REQUEST, MULTI_TENANT_OPTIONS],
@@ -102,4 +126,8 @@ export class PojoModule implements OnApplicationShutdown {
       exports: [connectionProvider],
     };
   }
+
+  //   static forRootAsync(oprions: PojoModuleAsyncOptions): DynamicModule {
+
+  //   }
 }
