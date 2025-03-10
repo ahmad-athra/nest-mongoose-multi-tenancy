@@ -1,31 +1,34 @@
-import { ModuleMetadata } from '@nestjs/common';
+import { ModuleMetadata, Provider, Type } from '@nestjs/common';
 import { MongooseModuleOptions } from '@nestjs/mongoose';
+import { Observable } from 'rxjs';
 
-// export enum CONNECTION_APPROACH {
-//   DEFAULT = 'DEFAULT',
-//   POJO = 'POJO',
-//   USEDB = 'USEDB',
-// }
 export enum CONNECTION_MODE {
-  default = 'default',
+  // TODO: ADD OTHER CONNECTION MODES
+  // default = 'default',
+  // use_db = 'use_db',
   pojo = 'pojo',
-  use_db = 'use_db',
 }
 
 export interface MultiTenantModuleOptions {
-  // approach: CONNECTION_APPROACH;
   mode: CONNECTION_MODE;
   uri: string;
   mongooseModuleOptions?: MongooseModuleOptions;
+  tenantValidator?: Type<ITenantValidator>;
+  tenantKey?: string;
+  requestKey?: string;
+  clearInterval?: number;
+  debug?: boolean;
+}
+export interface MultiTenantModuleAsyncOptions
+  extends Pick<ModuleMetadata, 'imports'> {
+  mode: CONNECTION_MODE;
+  tenantValidator?: Type<ITenantValidator>;
+  clearInterval?: number;
   tenantKey?: string;
   requestKey?: string;
   debug?: boolean;
-}
 
-export interface MultiTenantModuleAsyncOptions
-  extends Pick<ModuleMetadata, 'imports'> {
   connectionName?: string;
-  mode: CONNECTION_MODE;
   // TODO: implement them
   // useExisting?: Type<MongooseOptionsFactory>;
   // useClass?: Type<MongooseOptionsFactory>;
@@ -33,6 +36,17 @@ export interface MultiTenantModuleAsyncOptions
   useFactory: (
     ...args: any[]
     // ) => Promise<MongooseModuleFactoryOptions> | MongooseModuleFactoryOptions;
-  ) => Promise<MultiTenantModuleOptions> | MultiTenantModuleOptions;
+  ) =>
+    | Promise<MultiTenantModuleFactoryOptions>
+    | MultiTenantModuleFactoryOptions;
   inject?: any[];
+}
+
+export type MultiTenantModuleFactoryOptions = Pick<
+  MultiTenantModuleOptions,
+  'uri' | 'mongooseModuleOptions'
+>;
+
+export interface ITenantValidator {
+  validate(tenantId: string): boolean | Promise<boolean> | Observable<boolean>;
 }

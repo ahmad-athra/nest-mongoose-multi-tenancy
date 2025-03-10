@@ -3,46 +3,24 @@ import {
   DynamicModule,
   Global,
   Module,
-  ModuleMetadata,
   OnApplicationShutdown,
   Provider,
   Scope,
-  Type,
 } from '@nestjs/common';
-import { REQUEST } from '@nestjs/core';
-import { MongooseModuleOptions } from '@nestjs/mongoose';
-import { Request } from 'express';
 import {
   MULTI_TENANT_CONNECTION_NAME,
   MULTI_TENANT_OPTIONS,
 } from 'libs/mongoose-multi-tenant/constants/multi-tenant.constants';
 import {
+  PojoModuleAsyncOptions,
+  PojoModuleOptions,
+} from 'libs/mongoose-multi-tenant/interfaces/pojo.interface';
+import { TenantContextService } from 'libs/mongoose-multi-tenant/providers/tenant-context/tenant-context.service';
+import {
   extractMongooseOptions,
   getConnectionToken,
 } from 'libs/mongoose-multi-tenant/utils/token-utils';
 import { Connection, createConnection } from 'mongoose';
-
-export interface PojoModuleOptions {
-  uri: string;
-  mongooseModuleOptions?: MongooseModuleOptions;
-}
-// export type PojoModuleFactoryOptions = Omit<
-// PojoModuleOptions,
-// ''
-// >
-export interface PojoModuleAsyncOptions
-  extends Pick<ModuleMetadata, 'imports'> {
-  connectionName?: string;
-  // TODO: implement them
-  // useExisting?: Type<MongooseOptionsFactory>;
-  // useClass?: Type<MongooseOptionsFactory>;
-  // TODO make useFactory Optional
-  useFactory: (
-    ...args: any[]
-    // ) => Promise<MongooseModuleFactoryOptions> | MongooseModuleFactoryOptions;
-  ) => Promise<PojoModuleOptions> | PojoModuleOptions;
-  inject?: any[];
-}
 
 @Global()
 @Module({})
@@ -56,43 +34,42 @@ export class PojoModule implements OnApplicationShutdown {
   }
   static readonly connections: Map<
     string,
-    { connection: Connection; time: NodeJS.Timeout }
+    { connection: Connection; timeout?: NodeJS.Timeout }
   > = new Map();
   static forRoot(options: PojoModuleOptions): DynamicModule {
-    const { uri, mongooseModuleOptions } = options;
+    const { uri, mongooseModuleOptions, clearInterval } = options;
     const { connectionName } = mongooseModuleOptions || {};
 
     const mongooseConnectionName = getConnectionToken(connectionName);
 
-    const mongooseConnectionNameProvider = {
+    const mongooseConnectionNameProvider: Provider = {
       provide: MULTI_TENANT_CONNECTION_NAME,
       useValue: mongooseConnectionName,
     };
-    const multiTenantConnectionOptionsProvider = {
+    const multiTenantConnectionOptionsProvider: Provider = {
       provide: MULTI_TENANT_OPTIONS,
       useValue: options,
     };
 
-    const connectionProvider = {
+    const connectionProvider: Provider = {
       scope: Scope.REQUEST,
+      durable: true,
       provide: mongooseConnectionName,
-      useFactory: async (request: Request, options: PojoModuleOptions) => {
-        const db = request.headers['x-tenant-id']?.toString();
+      useFactory: async (
+        tenantContext: TenantContextService,
+        options: PojoModuleOptions,
+      ) => {
+        const db = tenantContext.getTenantId();
         if (!db)
           throw new BadRequestException(`Missing x-tenant-id ${db} in headers`);
 
         const connection_db = `${mongooseConnectionName}-${db}`; //unique name for every connection // based on connection name and tenant-id
-        console.log(`mongooseConnectionName, ${mongooseConnectionName}`);
-        console.log(
-          'this.connections.has(db)',
-          this.connections.has(connection_db),
-        );
         if (this.connections.has(connection_db)) {
           const connectionObj = this.connections.get(connection_db)!;
           if (connectionObj.connection.readyState !== 1) {
             this.connections.delete(connection_db);
           } else {
-            connectionObj.time.refresh();
+            connectionObj.timeout?.refresh();
             return this.connections.get(connection_db)!.connection;
           }
         }
@@ -104,21 +81,25 @@ export class PojoModule implements OnApplicationShutdown {
           ...mongooseOptions,
           dbName: db,
         }).asPromise();
-        const clearFunc = setTimeout(async () => {
-          this.connections.delete(connection_db);
-          await newConnection.close();
-          console.log(
-            `clear ${connection_db} from connections, connection_id: ${newConnection.id}`,
-          );
-        }, 10 * 1000);
+
+        let timeout: NodeJS.Timeout | undefined;
+        if (clearInterval && clearInterval > 0) {
+          timeout = setTimeout(async () => {
+            this.connections.delete(connection_db);
+            await newConnection.close();
+            console.log(
+              `clear ${connection_db} from connections, connection_id: ${newConnection.id}`,
+            );
+          }, clearInterval);
+        }
 
         this.connections.set(connection_db, {
           connection: newConnection,
-          time: clearFunc,
+          timeout,
         });
         return newConnection;
       },
-      inject: [REQUEST, MULTI_TENANT_OPTIONS],
+      inject: [TenantContextService, MULTI_TENANT_OPTIONS],
     };
 
     return {
@@ -133,7 +114,8 @@ export class PojoModule implements OnApplicationShutdown {
   }
 
   static forRootAsync(options: PojoModuleAsyncOptions): DynamicModule {
-    const { connectionName } = options;
+    const { connectionName, clearInterval } = options;
+
     const mongooseConnectionName = getConnectionToken(connectionName);
 
     const mongooseConnectionNameProvider: Provider = {
@@ -149,26 +131,25 @@ export class PojoModule implements OnApplicationShutdown {
 
     const connectionProvider: Provider = {
       scope: Scope.REQUEST,
+      durable: true,
       provide: mongooseConnectionName,
-      useFactory: async (request: Request, options: PojoModuleOptions) => {
-        const { uri, mongooseModuleOptions } = options;
+      useFactory: async (
+        tenantContext: TenantContextService,
+        useFactoryOption: PojoModuleOptions,
+      ) => {
+        const { uri, mongooseModuleOptions } = useFactoryOption;
 
-        const db = request.headers['x-tenant-id']?.toString();
+        const db = tenantContext.getTenantId();
         if (!db)
           throw new BadRequestException(`Missing x-tenant-id ${db} in headers`);
 
         const connection_db = `${mongooseConnectionName}-${db}`; //unique name for every connection // based on connection name and tenant-id
-        console.log(`mongooseConnectionName, ${mongooseConnectionName}`);
-        console.log(
-          'this.connections.has(db)',
-          this.connections.has(connection_db),
-        );
         if (this.connections.has(connection_db)) {
           const connectionObj = this.connections.get(connection_db)!;
           if (connectionObj.connection.readyState !== 1) {
             this.connections.delete(connection_db);
           } else {
-            connectionObj.time.refresh();
+            connectionObj.timeout?.refresh();
             return this.connections.get(connection_db)!.connection;
           }
         }
@@ -178,21 +159,108 @@ export class PojoModule implements OnApplicationShutdown {
           ...mongooseOptions,
           dbName: db,
         }).asPromise();
-        const clearFunc = setTimeout(async () => {
-          this.connections.delete(connection_db);
-          await newConnection.close();
-          console.log(
-            `clear ${connection_db} from connections, connection_id: ${newConnection.id}`,
-          );
-        }, 10 * 1000);
+
+        // newConnection.addListener('connectionPoolCreated: ', (ev) => {
+        //   console.log(
+        //     `newConnection: ${newConnection.id}\n`,
+        //     'connectionPoolCreated: ',
+        //     ev,
+        //   );
+        // });
+        // newConnection.addListener('connectionPoolReady: ', (ev) => {
+        //   console.log(
+        //     `newConnection: ${newConnection.id}\n`,
+        //     'connectionPoolReady: ',
+        //     ev,
+        //   );
+        // });
+        // newConnection.addListener('connectionPoolClosed: ', (ev) => {
+        //   console.log(
+        //     `newConnection: ${newConnection.id}\n`,
+        //     'connectionPoolClosed: ',
+        //     ev,
+        //   );
+        // });
+        // newConnection.addListener('connectionCreated: ', (ev) => {
+        //   console.log(
+        //     `newConnection: ${newConnection.id}\n`,
+        //     'connectionCreated: ',
+        //     ev,
+        //   );
+        // });
+        // newConnection.addListener('connectionReady: ', (ev) => {
+        //   console.log(
+        //     `newConnection: ${newConnection.id}\n`,
+        //     'connectionReady: ',
+        //     ev,
+        //   );
+        // });
+        // newConnection.addListener('connectionClosed: ', (ev) => {
+        //   console.log(
+        //     `newConnection: ${newConnection.id}\n`,
+        //     'connectionClosed: ',
+        //     ev,
+        //   );
+        // });
+        // newConnection.addListener('connectionCheckOutStarted: ', (ev) => {
+        //   console.log(
+        //     `newConnection: ${newConnection.id}\n`,
+        //     'connectionCheckOutStarted: ',
+        //     ev,
+        //   );
+        // });
+        // newConnection.addListener('connectionCheckOutFailed: ', (ev) => {
+        //   console.log(
+        //     `newConnection: ${newConnection.id}\n`,
+        //     'connectionCheckOutFailed: ',
+        //     ev,
+        //   );
+        // });
+        // newConnection.addListener('connectionCheckedOut: ', (ev) => {
+        //   console.log(
+        //     `newConnection: ${newConnection.id}\n`,
+        //     'connectionCheckedOut: ',
+        //     ev,
+        //   );
+        // });
+        // newConnection.addListener('connectionCheckedIn: ', (ev) => {
+        //   console.log(
+        //     `newConnection: ${newConnection.id}\n`,
+        //     'connectionCheckedIn: ',
+        //     ev,
+        //   );
+        // });
+        // newConnection.addListener('connectionPoolCleared: ', (ev) => {
+        //   console.log(
+        //     `newConnection: ${newConnection.id}\n`,
+        //     'connectionPoolCleared: ',
+        //     ev,
+        //   );
+        // });
+
+        let timeout: NodeJS.Timeout | undefined;
+        if (clearInterval && clearInterval > 0) {
+          // console.log('before: ', newConnection);
+
+          timeout = setTimeout(async () => {
+            this.connections.delete(connection_db);
+
+            // ---------------------------------
+            await newConnection.close();
+            // console.log('after: ', newConnection);
+            console.log(
+              `clear ${connection_db} from connections, connection_id: ${newConnection.id}`,
+            );
+          }, clearInterval);
+        }
 
         this.connections.set(connection_db, {
           connection: newConnection,
-          time: clearFunc,
+          timeout,
         });
         return newConnection;
       },
-      inject: [REQUEST, MULTI_TENANT_OPTIONS],
+      inject: [TenantContextService, MULTI_TENANT_OPTIONS],
     };
 
     return {

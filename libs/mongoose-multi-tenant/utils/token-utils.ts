@@ -1,7 +1,9 @@
+import { Provider } from '@nestjs/common';
 import {
   DEFAULT_DB_CONNECTION,
   DEFAULT_REQUEST_TENANT_KEY,
   DEFAULT_TENANT_KEY,
+  TENANT_VALIDATOR_TOKEN,
 } from '../constants/multi-tenant.constants';
 import { MultiTenantModuleOptions } from '../interfaces';
 
@@ -44,4 +46,19 @@ export function extractMongooseOptions(
     ...mongooseOptions
   } = options;
   return mongooseOptions;
+}
+
+// ------------------- [providers]
+export function tenantValidatorProvider(
+  tenantValidatorClass: MultiTenantModuleOptions['tenantValidator'],
+): Provider {
+  return tenantValidatorClass
+    ? {
+        provide: TENANT_VALIDATOR_TOKEN,
+        useClass: tenantValidatorClass,
+      }
+    : {
+        provide: TENANT_VALIDATOR_TOKEN,
+        useValue: null,
+      };
 }

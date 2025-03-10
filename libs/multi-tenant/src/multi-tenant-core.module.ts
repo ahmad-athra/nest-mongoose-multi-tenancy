@@ -46,8 +46,11 @@ import {
   handlePojoApproach,
   handleUseDbApproach,
 } from '../common/multi-tenant.utils';
+import { TenantContextService } from './shared/tenant-context/tenant-context.service';
 
-@Module({})
+@Module({
+  providers: [TenantContextService]
+})
 export class MultiTenantCoreModule implements OnModuleDestroy {
   onModuleDestroy() {
     this.loggerX.log('onModuleDestroy down...', MultiTenantCoreModule.name);

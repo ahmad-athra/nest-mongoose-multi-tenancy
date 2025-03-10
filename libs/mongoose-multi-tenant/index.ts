@@ -11,3 +11,5 @@ export {
   InjectMultiTenantConnection,
   InjectMultiTenantModel,
 } from './common/mongoose.decorators';
+
+export { ValidateTenantMiddleware } from './middlewares/tenant-validator/validate-tenant.middleware';
