@@ -1,4 +1,4 @@
-import { ModuleMetadata, Provider, Type } from '@nestjs/common';
+import { ModuleMetadata, Type } from '@nestjs/common';
 import { MongooseModuleOptions } from '@nestjs/mongoose';
 import { Observable } from 'rxjs';
 
@@ -9,6 +9,7 @@ export enum CONNECTION_MODE {
   pojo = 'pojo',
 }
 
+// [Clear]
 export interface MultiTenantModuleOptions {
   mode: CONNECTION_MODE;
   uri: string;
@@ -17,7 +18,7 @@ export interface MultiTenantModuleOptions {
   tenantKey?: string;
   requestKey?: string;
   clearInterval?: number;
-  debug?: boolean;
+  // debug?: boolean;
 }
 export interface MultiTenantModuleAsyncOptions
   extends Pick<ModuleMetadata, 'imports'> {

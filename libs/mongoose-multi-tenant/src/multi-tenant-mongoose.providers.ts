@@ -1,7 +1,7 @@
-import { Provider, Scope } from '@nestjs/common';
+import { Provider } from '@nestjs/common';
 import { ModelDefinition } from '@nestjs/mongoose';
-import { getConnectionToken, getModelToken } from '../utils/token-utils';
 import { Connection, Model } from 'mongoose';
+import { getConnectionToken, getModelToken } from '../utils/token-utils';
 
 export function createMongooseProviders(
   connectionName?: string,

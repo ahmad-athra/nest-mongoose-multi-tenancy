@@ -160,94 +160,11 @@ export class PojoModule implements OnApplicationShutdown {
           dbName: db,
         }).asPromise();
 
-        // newConnection.addListener('connectionPoolCreated: ', (ev) => {
-        //   console.log(
-        //     `newConnection: ${newConnection.id}\n`,
-        //     'connectionPoolCreated: ',
-        //     ev,
-        //   );
-        // });
-        // newConnection.addListener('connectionPoolReady: ', (ev) => {
-        //   console.log(
-        //     `newConnection: ${newConnection.id}\n`,
-        //     'connectionPoolReady: ',
-        //     ev,
-        //   );
-        // });
-        // newConnection.addListener('connectionPoolClosed: ', (ev) => {
-        //   console.log(
-        //     `newConnection: ${newConnection.id}\n`,
-        //     'connectionPoolClosed: ',
-        //     ev,
-        //   );
-        // });
-        // newConnection.addListener('connectionCreated: ', (ev) => {
-        //   console.log(
-        //     `newConnection: ${newConnection.id}\n`,
-        //     'connectionCreated: ',
-        //     ev,
-        //   );
-        // });
-        // newConnection.addListener('connectionReady: ', (ev) => {
-        //   console.log(
-        //     `newConnection: ${newConnection.id}\n`,
-        //     'connectionReady: ',
-        //     ev,
-        //   );
-        // });
-        // newConnection.addListener('connectionClosed: ', (ev) => {
-        //   console.log(
-        //     `newConnection: ${newConnection.id}\n`,
-        //     'connectionClosed: ',
-        //     ev,
-        //   );
-        // });
-        // newConnection.addListener('connectionCheckOutStarted: ', (ev) => {
-        //   console.log(
-        //     `newConnection: ${newConnection.id}\n`,
-        //     'connectionCheckOutStarted: ',
-        //     ev,
-        //   );
-        // });
-        // newConnection.addListener('connectionCheckOutFailed: ', (ev) => {
-        //   console.log(
-        //     `newConnection: ${newConnection.id}\n`,
-        //     'connectionCheckOutFailed: ',
-        //     ev,
-        //   );
-        // });
-        // newConnection.addListener('connectionCheckedOut: ', (ev) => {
-        //   console.log(
-        //     `newConnection: ${newConnection.id}\n`,
-        //     'connectionCheckedOut: ',
-        //     ev,
-        //   );
-        // });
-        // newConnection.addListener('connectionCheckedIn: ', (ev) => {
-        //   console.log(
-        //     `newConnection: ${newConnection.id}\n`,
-        //     'connectionCheckedIn: ',
-        //     ev,
-        //   );
-        // });
-        // newConnection.addListener('connectionPoolCleared: ', (ev) => {
-        //   console.log(
-        //     `newConnection: ${newConnection.id}\n`,
-        //     'connectionPoolCleared: ',
-        //     ev,
-        //   );
-        // });
-
         let timeout: NodeJS.Timeout | undefined;
         if (clearInterval && clearInterval > 0) {
-          // console.log('before: ', newConnection);
-
           timeout = setTimeout(async () => {
             this.connections.delete(connection_db);
-
-            // ---------------------------------
             await newConnection.close();
-            // console.log('after: ', newConnection);
             console.log(
               `clear ${connection_db} from connections, connection_id: ${newConnection.id}`,
             );
@@ -271,7 +188,7 @@ export class PojoModule implements OnApplicationShutdown {
         connectionProvider,
       ],
       exports: [connectionProvider],
-      global: true,
+      // global: true,
     };
   }
 }

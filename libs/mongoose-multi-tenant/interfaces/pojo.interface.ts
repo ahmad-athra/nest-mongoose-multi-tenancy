@@ -1,20 +1,17 @@
 import { ModuleMetadata } from '@nestjs/common';
-import { MongooseModuleOptions } from '@nestjs/mongoose';
+import { MultiTenantModuleOptions } from './multi-tenant-options.interface';
 
-export interface PojoModuleOptions {
-  uri: string;
-  mongooseModuleOptions?: MongooseModuleOptions;
-  clearInterval?: number;
-}
+export interface PojoModuleOptions
+  extends Pick<
+    MultiTenantModuleOptions,
+    'uri' | 'mongooseModuleOptions' | 'clearInterval'
+  > {}
 
 export interface PojoModuleAsyncOptions
   extends Pick<ModuleMetadata, 'imports'> {
   connectionName?: string;
   clearInterval?: number;
-  // TODO: implement them
-  // useExisting?: Type<MongooseOptionsFactory>;
-  // useClass?: Type<MongooseOptionsFactory>;
-  // TODO make useFactory Optional
+  // TODO: implement [ useExisting?, useClass?, useFactory? ]
   useFactory: (
     ...args: any[]
     // ) => Promise<MongooseModuleFactoryOptions> | MongooseModuleFactoryOptions;
